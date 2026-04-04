@@ -4,7 +4,7 @@ ARG PGVECTOR_VERSION=master
 
 RUN apk add --update --no-cache \
     build-base \
-    clang-19 \
+    clang19 \
     git \
     llvm19
 
