@@ -6,7 +6,7 @@ This repository provides Dockerfiles and automated builds for PostgreSQL with th
 
 ## Supported Tags
 
-The images are available on GitHub Container Registry (`ghcr.io`).
+The images are available on Docker Hub (`docker.io`) and GitHub Container Registry (`ghcr.io`).
 
 Each combination is published under two tags:
 
@@ -29,7 +29,7 @@ Each combination is published under two tags:
 Run a container with the image (e.g., Postgres 18 Alpine variant):
 
 ```bash
-docker run --name pg-vector -e POSTGRES_PASSWORD=mysecretpassword -p 5432:5432 -d ghcr.io/mehyaa/postgres-pgvector:18-alpine
+docker run --name pg-vector -e POSTGRES_PASSWORD=mysecretpassword -p 5432:5432 -d mehyaa/postgres-pgvector:18-alpine
 ```
 
 ### Enable Extension
