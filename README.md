@@ -8,14 +8,19 @@ This repository provides Dockerfiles and automated builds for PostgreSQL with th
 
 The images are available on GitHub Container Registry (`ghcr.io`).
 
-| PostgreSQL Version | OS Variant | Target Tag |
+Each combination is published under two tags:
+
+- `<postgres-version>-<os-variant>` (e.g. `18-alpine`) — built against the `pgvector` `master` branch, updated on every scheduled/triggered build.
+- `<postgres-version>-<os-variant>-<pgvector-version>` (e.g. `18-alpine-0.8.1`) — built against the latest stable `pgvector` release tag, pinned to that specific version.
+
+| PostgreSQL Version | OS Variant | Target Tags |
 | :--- | :--- | :--- |
-| **18** | Alpine, Bookworm, Trixie | `18-alpine`, `18-bookworm`, `18-trixie` |
-| **17** | Alpine, Bookworm, Trixie | `17-alpine`, `17-bookworm`, `17-trixie` |
-| **16** | Alpine, Bookworm, Trixie | `16-alpine`, `16-bookworm`, `16-trixie` |
-| **15** | Alpine, Bookworm, Trixie | `15-alpine`, `15-bookworm`, `15-trixie` |
-| **14** | Alpine, Bookworm, Trixie | `14-alpine`, `14-bookworm`, `14-trixie` |
-| **13** | Alpine, Bookworm, Trixie | `13-alpine`, `13-bookworm`, `13-trixie` |
+| **18** | Alpine, Bookworm, Trixie | `18-alpine`, `18-bookworm`, `18-trixie` (and `-<pgvector-version>` variants) |
+| **17** | Alpine, Bookworm, Trixie | `17-alpine`, `17-bookworm`, `17-trixie` (and `-<pgvector-version>` variants) |
+| **16** | Alpine, Bookworm, Trixie | `16-alpine`, `16-bookworm`, `16-trixie` (and `-<pgvector-version>` variants) |
+| **15** | Alpine, Bookworm, Trixie | `15-alpine`, `15-bookworm`, `15-trixie` (and `-<pgvector-version>` variants) |
+| **14** | Alpine, Bookworm, Trixie | `14-alpine`, `14-bookworm`, `14-trixie` (and `-<pgvector-version>` variants) |
+| **13** | Alpine, Bookworm, Trixie | `13-alpine`, `13-bookworm`, `13-trixie` (and `-<pgvector-version>` variants) |
 
 ## Usage
 
