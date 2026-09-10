@@ -4,9 +4,9 @@ ARG PGVECTOR_VERSION=master
 
 RUN apk add --update --no-cache \
     build-base \
-    clang19 \
+    clang21 \
     git \
-    llvm19
+    llvm21
 
 ENV PGVECTOR_VERSION=${PGVECTOR_VERSION}
 
