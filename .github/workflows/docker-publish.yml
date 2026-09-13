@@ -24,11 +24,26 @@ jobs:
     outputs:
       ref: ${{ steps.latest.outputs.ref }}
       tag: ${{ steps.latest.outputs.tag }}
+      tag_sha: ${{ steps.latest.outputs.tag_sha }}
+      master_sha: ${{ steps.latest.outputs.master_sha }}
+      skip_master: ${{ steps.check.outputs.skip_master }}
+      skip_stable: ${{ steps.check.outputs.skip_stable }}
+      skip_all: ${{ steps.check.outputs.skip_all }}
 
     steps:
-      - name: Resolve latest stable pgvector version
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve latest stable pgvector version and commit hashes
         id: latest
         run: |
+          master_line=$(git ls-remote https://github.com/pgvector/pgvector.git refs/heads/master)
+          master_sha=$(echo "$master_line" | awk '{print $1}' | cut -c1-7)
+
           latest_ref=$(git ls-remote --tags --refs https://github.com/pgvector/pgvector.git \
             | awk '{print $2}' \
             | sed 's#refs/tags/##' \
@@ -36,11 +51,50 @@ jobs:
             | sort -V \
             | tail -n1)
 
+          tag="${latest_ref#v}"
+
+          tag_line=$(git ls-remote --tags --refs https://github.com/pgvector/pgvector.git "refs/tags/${latest_ref}")
+          tag_sha=$(echo "$tag_line" | awk '{print $1}' | cut -c1-7)
+
           echo "ref=${latest_ref}" >> "$GITHUB_OUTPUT"
-          echo "tag=${latest_ref#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "tag_sha=${tag_sha}" >> "$GITHUB_OUTPUT"
+          echo "master_sha=${master_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Check if images exist in GHCR
+        id: check
+        run: |
+          master_sha="${{ steps.latest.outputs.master_sha }}"
+          tag="${{ steps.latest.outputs.tag }}"
+
+          MASTER_IMAGE="ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:18-alpine-${master_sha}"
+          STABLE_IMAGE="ghcr.io/${{ github.actor }}/${{ env.IMAGE_NAME }}:18-alpine-${tag}"
+
+          skip_master="false"
+          skip_stable="false"
+
+          if docker manifest inspect "$MASTER_IMAGE" > /dev/null 2>&1; then
+            echo "Master image (${MASTER_IMAGE}) already exists in GHCR."
+            skip_master="true"
+          fi
+
+          if docker manifest inspect "$STABLE_IMAGE" > /dev/null 2>&1; then
+            echo "Stable image (${STABLE_IMAGE}) already exists in GHCR."
+            skip_stable="true"
+          fi
+
+          echo "skip_master=${skip_master}" >> "$GITHUB_OUTPUT"
+          echo "skip_stable=${skip_stable}" >> "$GITHUB_OUTPUT"
+
+          if [ "$skip_master" = "true" ] && [ "$skip_stable" = "true" ]; then
+            echo "skip_all=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip_all=false" >> "$GITHUB_OUTPUT"
+          fi
 
   build-and-push:
     needs: resolve-pgvector-version
+    if: needs.resolve-pgvector-version.outputs.skip_all != 'true'
 
     runs-on: ubuntu-latest
 
@@ -85,7 +139,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Checkout pgvector source (master branch)
+        if: needs.resolve-pgvector-version.outputs.skip_master != 'true'
+        run: git clone --depth 1 https://github.com/pgvector/pgvector.git pgvector-src-master
+
       - name: Extract metadata for Docker
+        if: needs.resolve-pgvector-version.outputs.skip_master != 'true'
         id: meta-latest
         uses: docker/metadata-action@v6
         with:
@@ -99,12 +158,16 @@ jobs:
           tags: |
             type=sha,enable=false
             type=raw,value=${{ matrix.postgres }}-${{ matrix.variant }}
+            type=raw,value=${{ matrix.postgres }}-${{ matrix.variant }}-${{ needs.resolve-pgvector-version.outputs.master_sha }}
 
       - name: Build and push Docker image
+        if: needs.resolve-pgvector-version.outputs.skip_master != 'true'
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.postgres }}/${{ matrix.variant }}
           file: ${{ matrix.postgres }}/${{ matrix.variant }}/Dockerfile
+          build-contexts: |
+            pgvector-src=pgvector-src-master
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-latest.outputs.tags }}
           labels: ${{ steps.meta-latest.outputs.labels }}
@@ -113,7 +176,12 @@ jobs:
           provenance: false
           sbom: false
 
+      - name: Checkout pgvector source (stable release)
+        if: needs.resolve-pgvector-version.outputs.skip_stable != 'true'
+        run: git clone --depth 1 --branch ${{ needs.resolve-pgvector-version.outputs.ref }} https://github.com/pgvector/pgvector.git pgvector-src-stable
+
       - name: Extract metadata for Docker (pgvector Latest Tag)
+        if: needs.resolve-pgvector-version.outputs.skip_stable != 'true'
         id: meta-tag
         uses: docker/metadata-action@v6
         with:
@@ -129,12 +197,13 @@ jobs:
             type=raw,value=${{ matrix.postgres }}-${{ matrix.variant }}-${{ needs.resolve-pgvector-version.outputs.tag }}
 
       - name: Build and push Docker image (pgvector Latest Tag)
+        if: needs.resolve-pgvector-version.outputs.skip_stable != 'true'
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.postgres }}/${{ matrix.variant }}
           file: ${{ matrix.postgres }}/${{ matrix.variant }}/Dockerfile
-          build-args: |
-            PGVECTOR_VERSION=${{ needs.resolve-pgvector-version.outputs.ref }}
+          build-contexts: |
+            pgvector-src=pgvector-src-stable
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-tag.outputs.tags }}
           labels: ${{ steps.meta-tag.outputs.labels }}

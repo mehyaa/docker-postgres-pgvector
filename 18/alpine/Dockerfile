@@ -1,16 +1,11 @@
 FROM postgres:18-alpine AS builder
 
-ARG PGVECTOR_VERSION=master
-
 RUN apk add --update --no-cache \
     build-base \
     clang21 \
-    git \
     llvm21
 
-ENV PGVECTOR_VERSION=${PGVECTOR_VERSION}
-
-RUN git clone --branch ${PGVECTOR_VERSION} https://github.com/pgvector/pgvector.git /usr/src/pgvector
+COPY --from=pgvector-src / /usr/src/pgvector
 
 WORKDIR /usr/src/pgvector
 
